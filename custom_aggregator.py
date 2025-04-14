@@ -5,8 +5,7 @@ from sklearn.preprocessing import OneHotEncoder
 import pandas as pd
 import gower
 
-from catboost import CatBoostRegressor
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.base import BaseEstimator
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -104,38 +103,6 @@ class GroupStatsAggregator(BaseEstimator, TransformerMixin):
         X = X.merge(self.stats_df, on=["Industry","cluster"], how='left')
         X = X.fillna(X.mean(numeric_only=True))
         return X
-    
-    
-class CatBoostWrapper(BaseEstimator, RegressorMixin):
-    def __init__(self, **kparams):
-        self.kparams = kparams
-        self.model: CatBoostRegressor = CatBoostRegressor(**self.kparams)
-        # self.cat_columns = ["remainder__Industry", "remainder__cluster", "Industry","cluster"]
-
-    def fit(self, X, y):
-        # current_cat_columns = []
-        # for col in self.cat_columns:
-        #     if col in X.columns:
-        #         current_cat_columns.append(col)
-        #         X[col] = X[col].astype("category")
-        self.model = CatBoostRegressor(**self.kparams)
-        self.model.fit(X, y, verbose=0)
-        return self
-    
-    def _fit(self, X, y, **fit_params):
-        current_cat_columns = []
-        for col in self.cat_columns:
-            if col in X.columns:
-                current_cat_columns.append(col)
-                X[col] = X[col].astype("category")
-        self.model = CatBoostRegressor(**self.kparams)
-        self.model.fit(X, y, cat_features=current_cat_columns, verbose=0)
-        return self
-    
-    
-
-    def predict(self, X):
-        return self.model.predict(X)
 
 class DataFrameWrapper(BaseEstimator, TransformerMixin):
     def __init__(self, transformer, columns=None):
@@ -154,6 +121,7 @@ class DataFrameWrapper(BaseEstimator, TransformerMixin):
     def transform(self, X):
         Xt = self.transformer.transform(X)
         if isinstance(Xt, pd.DataFrame):
+            self.final_columns = Xt.columns
             return Xt  # already good
         if hasattr(self.transformer, 'get_feature_names_out'):
             try:
@@ -166,6 +134,7 @@ class DataFrameWrapper(BaseEstimator, TransformerMixin):
             cols = [f"{col}-{self.transformer.__class__.__name__}" for col in cols]
         else:
             raise ValueError("ASDSA")
+        self.final_columns = cols
         return pd.DataFrame(Xt, columns=cols, index=X.index)
 
     
