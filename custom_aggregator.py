@@ -1,26 +1,30 @@
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import OneHotEncoder
-import pandas as pd
+from typing import List
+
 import gower
-
-from sklearn.base import BaseEstimator
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
-
-from sklearn.pipeline import Pipeline
-from sklearn.pipeline import FeatureUnion
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import QuantileTransformer
-from sklearn.preprocessing import KBinsDiscretizer
-from sklearn.decomposition import TruncatedSVD
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.cluster import AgglomerativeClustering
 from sklearn.compose import ColumnTransformer
+from sklearn.decomposition import TruncatedSVD
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import (KBinsDiscretizer, MinMaxScaler,
+                                   OneHotEncoder, QuantileTransformer,
+                                   RobustScaler, StandardScaler)
+
+
+class SelectColumns(BaseEstimator, TransformerMixin):
+    def __init__(self, columns: List[str]):
+        self.columns = columns
+        
+    def fit(self, X, y=None):
+        return self  # nothing to learn
+    
+    def transform(self, X):
+        return X[self.columns]
 
 def compute_aggregate(data, agg_keys, numeric_columns, agg_methods):
     stats_df_list = []
@@ -35,21 +39,16 @@ def compute_aggregate(data, agg_keys, numeric_columns, agg_methods):
         stats_df = stats_df.merge(stats_df_, on=agg_keys, how='left')
     return stats_df
 
-class GroupStatsAggregator(BaseEstimator, TransformerMixin):
-    def __init__(self, 
-                 n_clusters=5,
-                 n_neighbors=1,
-                 agg_cols=['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG'], 
-                 agg_funcs=['mean']):
-        self.agg_cols = agg_cols
-        self.agg_funcs = agg_funcs
-        self.n_clusters = n_clusters
-        self.n_neighbors = n_neighbors
-        self.stats_df: pd.DataFrame
-        self.X_train: pd.DataFrame
+class Clustering(BaseEstimator, TransformerMixin):
+    def __init__(self,
+                 n_neighbors: int,
+                 n_clusters: int):
         self.clustering_model: AgglomerativeClustering
         self.knn: KNeighborsClassifier
-        self.encoder = OneHotEncoder(sparse_output=False, drop='first', handle_unknown="infrequent_if_exist") 
+        self.encoder: OneHotEncoder = OneHotEncoder(sparse_output=False, drop='first', handle_unknown="infrequent_if_exist") 
+        self.n_neighbors = n_neighbors
+        self.n_clusters = n_clusters
+        self.X_train: pd.DataFrame
 
     def prepare_knn(self):
         if 'Industry' in self.X_train.columns:
@@ -61,7 +60,7 @@ class GroupStatsAggregator(BaseEstimator, TransformerMixin):
         X_num = self.X_train.select_dtypes("number")
         self.knn = KNeighborsClassifier(n_neighbors=self.n_neighbors)
         self.knn.fit(X_num, self.X_train['cluster'])
-    
+
     def cluster(self, X):
         self.clustering_model = AgglomerativeClustering(n_clusters=self.n_clusters, linkage="complete", metric='precomputed')
         distance_matrix = gower.gower_matrix(X)
@@ -72,23 +71,58 @@ class GroupStatsAggregator(BaseEstimator, TransformerMixin):
         self.prepare_knn()
         return X
     
+    def transform(self, X):
+        if 'Industry' in X.columns:
+            encoded_industry = self.encoder.transform(X[['Industry']])
+            _, nc = encoded_industry.shape
+            encoded_industry_df = pd.DataFrame(encoded_industry, columns=[f"Industry-encoding-{i}" for i in range(nc)])
+            encoded_industry_df.index = X.index
+            X_num = X.select_dtypes("number")
+            X_encoded = pd.concat([X_num, encoded_industry_df], axis=1)
+        X['cluster'] = self.knn.predict(X_encoded)
+        return X
+
+class GroupStatsAggregator(BaseEstimator, TransformerMixin):
+    def __init__(self, 
+                 n_clusters: int=5,
+                 n_neighbors: int=1,
+                 group_cols:List[str] = ["Industry", "cluster"],
+                 agg_cols:List[str]=['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG'], 
+                 agg_funcs:List[str]=['mean']):
+        self.agg_cols = agg_cols
+        self.agg_funcs = agg_funcs
+        self.group_cols = group_cols
+        self.n_clusters = n_clusters
+        self.n_neighbors = n_neighbors
+        self.stats_df: pd.DataFrame
+        self.X_train: pd.DataFrame
+        
+
     def fit(self, X, y=None):
-        X = self.cluster(X)
-        i_stats_df = compute_aggregate(X, ["Industry"], self.agg_cols, self.agg_funcs).reset_index()
-        c_stats_df = compute_aggregate(X, ["cluster"], self.agg_cols, self.agg_funcs).reset_index()
-        ic_stats_df = compute_aggregate(X,  ["Industry","cluster"], self.agg_cols, self.agg_funcs).reset_index()
-        final_stats_df = ic_stats_df
-        for col in i_stats_df.columns:
-            if col in ["Industry","cluster"]:
-                continue
-            final_stats_df[col] = final_stats_df["Industry"].map(i_stats_df.set_index('Industry')[col]).astype(float)
-            final_stats_df[col] = final_stats_df[col].fillna(final_stats_df[col].mean())
-        for col in c_stats_df.columns:
-            if col in ["Industry","cluster"]:
-                continue
-            final_stats_df[col] = final_stats_df["cluster"].map(c_stats_df.set_index('cluster')[col]).astype(float)
-            final_stats_df[col] = final_stats_df[col].fillna(final_stats_df[col].mean())
-        self.stats_df = final_stats_df
+        i_stats_df: pd.DataFrame = None
+        c_stats_df: pd.DataFrame = None
+        ic_stats_df: pd.DataFrame = None
+        
+        if "Industry" in self.group_cols:
+            i_stats_df = compute_aggregate(X, ["Industry"], self.agg_cols, self.agg_funcs).reset_index()
+        if "cluster" in self.group_cols:
+            c_stats_df = compute_aggregate(X, ["cluster"], self.agg_cols, self.agg_funcs).reset_index()
+        if len(self.group_cols)>1:
+            ic_stats_df = compute_aggregate(X,  ["Industry","cluster"], self.agg_cols, self.agg_funcs).reset_index()
+    
+        if len(self.group_cols)>1:
+            final_stats_df = ic_stats_df
+            for col in i_stats_df.columns:
+                if col in ["Industry","cluster"]:
+                    continue
+                final_stats_df[col] = final_stats_df["Industry"].map(i_stats_df.set_index('Industry')[col]).astype(float)
+                final_stats_df[col] = final_stats_df[col].fillna(final_stats_df[col].mean())
+            for col in c_stats_df.columns:
+                if col in ["Industry","cluster"]:
+                    continue
+                final_stats_df[col] = final_stats_df["cluster"].map(c_stats_df.set_index('cluster')[col]).astype(float)
+                final_stats_df[col] = final_stats_df[col].fillna(final_stats_df[col].mean())
+            self.stats_df = final_stats_df
         return self
     
     def transform(self, X):
@@ -168,7 +202,7 @@ if __name__ == "__main__":
     model = Pipeline(steps)
 
     
-    from sklearn.metrics import mean_squared_error, mean_absolute_error
+    from sklearn.metrics import mean_absolute_error, mean_squared_error
     from sklearn.model_selection import KFold
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     # Loop over each fold for cross-validation
