@@ -21,7 +21,7 @@ NUMERIC_COLUMNS_DICT = {
         "basic-industry-cluster-aggregated": ['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG', 'Industry-cluster-MR-mean', 'Industry-cluster-TRC-mean', 'Industry-cluster-BAB-mean', 'Industry-cluster-EV-mean', 'Industry-cluster-P/B-mean', 'Industry-cluster-PSR-mean', 'Industry-cluster-ROA-mean', 'Industry-cluster-C/A-mean', 'Industry-cluster-D/A-mean', 'Industry-cluster-PG-mean', 'Industry-cluster-AG-mean', 'Industry-MR-mean', 'Industry-TRC-mean', 'Industry-BAB-mean', 'Industry-EV-mean', 'Industry-P/B-mean', 'Industry-PSR-mean', 'Industry-ROA-mean', 'Industry-C/A-mean', 'Industry-D/A-mean', 'Industry-PG-mean', 'Industry-AG-mean', 'cluster-MR-mean', 'cluster-TRC-mean', 'cluster-BAB-mean', 'cluster-EV-mean', 'cluster-P/B-mean', 'cluster-PSR-mean', 'cluster-ROA-mean', 'cluster-C/A-mean', 'cluster-D/A-mean', 'cluster-PG-mean', 'cluster-AG-mean']
     }
 
-BASIC_COLUMNS = ["Yt.1M","Industry","MR","TVC","TRC","BAB","EV","P/B","PSR","ROE","ROA","C/A","D/A","PG","AG"]
+BASIC_COLUMNS = ["Industry","MR","TVC","TRC","BAB","EV","P/B","PSR","ROE","ROA","C/A","D/A","PG","AG"]
 
 def compute_aggregate(data:pd.DataFrame, agg_keys: List[str], numeric_columns:List[str], agg_methods: List[str])->pd.DataFrame:
     stats_df_list = []

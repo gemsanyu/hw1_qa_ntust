@@ -1,15 +1,13 @@
-from custom_transform import DataFrameWrapper, Clustering, GroupStatsAggregator, ColumnSelector, BASIC_COLUMNS, NUMERIC_COLUMNS_DICT
-
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import QuantileTransformer
-from sklearn.preprocessing import KBinsDiscretizer
+from custom_transform import (BASIC_COLUMNS, NUMERIC_COLUMNS_DICT, Clustering,
+                              ColumnSelector, DataFrameWrapper,
+                              GroupStatsAggregator)
+from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import RFE
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.pipeline import FeatureUnion
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import (KBinsDiscretizer, MinMaxScaler,
+                                   QuantileTransformer, RobustScaler,
+                                   StandardScaler)
 from xgboost import XGBRegressor
 
 
@@ -45,7 +43,7 @@ def prepare_model_pipeline(column_mode: str,
     
     if column_mode == "basic-industry-aggregated":
         steps.append(("gsa",GroupStatsAggregator(group_cols=["Industry"])))
-    elif column_mode == "cluster-industry-aggregated":
+    elif column_mode == "basic-cluster-aggregated":
         steps.append(("clustering", Clustering(n_neighbors=n_neighbors, n_clusters=n_clusters)))
         steps.append(("gsa",GroupStatsAggregator(group_cols=["cluster"])))
     elif column_mode == "basic-industry-cluster-aggregated":
