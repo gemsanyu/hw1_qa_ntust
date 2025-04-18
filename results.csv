@@ -1,3 +1,4 @@
+model,preprocess_mode,use_rfe,runs,neg_rmse
 catboost,p1,False,0,-0.09898033233900504
 catboost,p1,False,1,-0.18876576822791413
 catboost,p1,False,2,-0.11380171584738688
