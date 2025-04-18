@@ -1,10 +1,8 @@
 from typing import List
 
 import gower
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.compose import ColumnTransformer
@@ -15,18 +13,17 @@ from sklearn.preprocessing import (KBinsDiscretizer, MinMaxScaler,
                                    OneHotEncoder, QuantileTransformer,
                                    RobustScaler, StandardScaler)
 
+NUMERIC_COLUMNS_DICT = {
+        "original":['MR', 'MR.PR', 'MR.Decile', 'TVC', 'TVC.PR', 'TVC.Decile', 'TRC', 'TRC.PR', 'TRC.Decile', 'BAB', 'BAB.PR', 'BAB.Decile', 'EV', 'EV.PR', 'EV.Decile', 'P/B', 'P/B.PR', 'P/B.Decile', 'PSR', 'PSR.PR', 'PSR.Decile', 'ROE', 'ROE.PR', 'ROE.Decile', 'ROA', 'ROA.PR', 'ROA.Decile', 'C/A', 'C/A.PR', 'C/A.Decile', 'D/A', 'D/A.PR', 'D/A.Decile', 'PG', 'PG.PR', 'PG.Decile', 'AG', 'AG.PR', 'AG.Decile'],
+        "basic":['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG'],
+        "basic-industry-aggregated": ['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG', 'Industry-MR-mean', 'Industry-TRC-mean', 'Industry-BAB-mean', 'Industry-EV-mean', 'Industry-P/B-mean', 'Industry-PSR-mean', 'Industry-ROA-mean', 'Industry-C/A-mean', 'Industry-D/A-mean', 'Industry-PG-mean', 'Industry-AG-mean'],
+        "basic-cluster-aggregated": ['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG', 'cluster-MR-mean', 'cluster-TRC-mean', 'cluster-BAB-mean', 'cluster-EV-mean', 'cluster-P/B-mean', 'cluster-PSR-mean', 'cluster-ROA-mean', 'cluster-C/A-mean', 'cluster-D/A-mean', 'cluster-PG-mean', 'cluster-AG-mean'],
+        "basic-industry-cluster-aggregated": ['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG', 'Industry-cluster-MR-mean', 'Industry-cluster-TRC-mean', 'Industry-cluster-BAB-mean', 'Industry-cluster-EV-mean', 'Industry-cluster-P/B-mean', 'Industry-cluster-PSR-mean', 'Industry-cluster-ROA-mean', 'Industry-cluster-C/A-mean', 'Industry-cluster-D/A-mean', 'Industry-cluster-PG-mean', 'Industry-cluster-AG-mean', 'Industry-MR-mean', 'Industry-TRC-mean', 'Industry-BAB-mean', 'Industry-EV-mean', 'Industry-P/B-mean', 'Industry-PSR-mean', 'Industry-ROA-mean', 'Industry-C/A-mean', 'Industry-D/A-mean', 'Industry-PG-mean', 'Industry-AG-mean', 'cluster-MR-mean', 'cluster-TRC-mean', 'cluster-BAB-mean', 'cluster-EV-mean', 'cluster-P/B-mean', 'cluster-PSR-mean', 'cluster-ROA-mean', 'cluster-C/A-mean', 'cluster-D/A-mean', 'cluster-PG-mean', 'cluster-AG-mean']
+    }
 
-class SelectColumns(BaseEstimator, TransformerMixin):
-    def __init__(self, columns: List[str]):
-        self.columns = columns
-        
-    def fit(self, X, y=None):
-        return self  # nothing to learn
-    
-    def transform(self, X):
-        return X[self.columns]
+BASIC_COLUMNS = ["Yt.1M","Industry","MR","TVC","TRC","BAB","EV","P/B","PSR","ROE","ROA","C/A","D/A","PG","AG"]
 
-def compute_aggregate(data, agg_keys, numeric_columns, agg_methods):
+def compute_aggregate(data:pd.DataFrame, agg_keys: List[str], numeric_columns:List[str], agg_methods: List[str])->pd.DataFrame:
     stats_df_list = []
     cat_colums_str = "-".join(agg_keys)
     for numeric_col in numeric_columns:
@@ -48,30 +45,32 @@ class Clustering(BaseEstimator, TransformerMixin):
         self.encoder: OneHotEncoder = OneHotEncoder(sparse_output=False, drop='first', handle_unknown="infrequent_if_exist") 
         self.n_neighbors = n_neighbors
         self.n_clusters = n_clusters
-        self.X_train: pd.DataFrame
 
-    def prepare_knn(self):
-        if 'Industry' in self.X_train.columns:
-            encoded_industry = self.encoder.fit_transform(self.X_train[['Industry']])
+    def fit(self, X: pd.DataFrame, y=None):
+        X_ = X.copy()
+        if 'Industry' in X.columns:
+            encoded_industry = self.encoder.fit_transform(X_[['Industry']])
             _, nc = encoded_industry.shape
             encoded_industry_df = pd.DataFrame(encoded_industry, columns=[f"Industry-encoding-{i}" for i in range(nc)]).astype(int)
-            encoded_industry_df.index = self.X_train.index
-            self.X_train = pd.concat([self.X_train, encoded_industry_df], axis=1)
-        X_num = self.X_train.select_dtypes("number")
+            encoded_industry_df.index = X_.index
+            X_ = pd.concat([X_, encoded_industry_df], axis=1)
+        X_num = X_.select_dtypes("number")
+        X_clustered = self.cluster(X_)
         self.knn = KNeighborsClassifier(n_neighbors=self.n_neighbors)
-        self.knn.fit(X_num, self.X_train['cluster'])
+        self.knn.fit(X_num, X_clustered['cluster'])
+        return self
 
-    def cluster(self, X):
+    def cluster(self, X: pd.DataFrame):
         self.clustering_model = AgglomerativeClustering(n_clusters=self.n_clusters, linkage="complete", metric='precomputed')
         distance_matrix = gower.gower_matrix(X)
         clusters_complete = self.clustering_model.fit_predict(distance_matrix)
-        X["cluster"] = np.asanyarray(clusters_complete)
-        X["cluster"] = X["cluster"].astype("category")
-        self.X_train = X.copy()
-        self.prepare_knn()
-        return X
+        X_new = X.copy()
+        X_new["cluster"] = np.asanyarray(clusters_complete)
+        X_new["cluster"] = X_new["cluster"].astype("category")
+        return X_new
     
-    def transform(self, X):
+    def transform(self, X:pd.DataFrame):
+        X_encoded = X
         if 'Industry' in X.columns:
             encoded_industry = self.encoder.transform(X[['Industry']])
             _, nc = encoded_industry.shape
@@ -79,26 +78,35 @@ class Clustering(BaseEstimator, TransformerMixin):
             encoded_industry_df.index = X.index
             X_num = X.select_dtypes("number")
             X_encoded = pd.concat([X_num, encoded_industry_df], axis=1)
-        X['cluster'] = self.knn.predict(X_encoded)
-        return X
+        X_num = X_encoded.select_dtypes("number")
+        X_new = X.copy()
+        X_new['cluster'] = self.knn.predict(X_num)
+        return X_new
+    
+    
+class ColumnSelector(BaseEstimator, TransformerMixin):
+    def __init__(self,
+                 columns: List[str]):
+        self.columns = columns
+
+    def fit(self, X: pd.DataFrame, y=None):
+        return self #nothing to learn
+ 
+    def transform(self, X:pd.DataFrame):
+        return X[self.columns]
 
 class GroupStatsAggregator(BaseEstimator, TransformerMixin):
     def __init__(self, 
-                 n_clusters: int=5,
-                 n_neighbors: int=1,
-                 group_cols:List[str] = ["Industry", "cluster"],
+                 group_cols:List[str],
                  agg_cols:List[str]=['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG'], 
                  agg_funcs:List[str]=['mean']):
         self.agg_cols = agg_cols
         self.agg_funcs = agg_funcs
         self.group_cols = group_cols
-        self.n_clusters = n_clusters
-        self.n_neighbors = n_neighbors
         self.stats_df: pd.DataFrame
-        self.X_train: pd.DataFrame
         
 
-    def fit(self, X, y=None):
+    def fit(self, X:pd.DataFrame, y=None):
         i_stats_df: pd.DataFrame = None
         c_stats_df: pd.DataFrame = None
         ic_stats_df: pd.DataFrame = None
@@ -123,18 +131,14 @@ class GroupStatsAggregator(BaseEstimator, TransformerMixin):
                 final_stats_df[col] = final_stats_df["cluster"].map(c_stats_df.set_index('cluster')[col]).astype(float)
                 final_stats_df[col] = final_stats_df[col].fillna(final_stats_df[col].mean())
             self.stats_df = final_stats_df
+        elif "Industry" in self.group_cols:
+            self.stats_df = i_stats_df
+        else:
+            self.stats_df = c_stats_df
         return self
     
-    def transform(self, X):
-        if 'Industry' in X.columns:
-            encoded_industry = self.encoder.transform(X[['Industry']])
-            _, nc = encoded_industry.shape
-            encoded_industry_df = pd.DataFrame(encoded_industry, columns=[f"Industry-encoding-{i}" for i in range(nc)])
-            encoded_industry_df.index = X.index
-            X_num = X.select_dtypes("number")
-            X_encoded = pd.concat([X_num, encoded_industry_df], axis=1)
-        X['cluster'] = self.knn.predict(X_encoded)
-        X = X.merge(self.stats_df, on=["Industry","cluster"], how='left')
+    def transform(self, X:pd.DataFrame):
+        X = X.merge(self.stats_df, on=self.group_cols, how='left')
         X = X.fillna(X.mean(numeric_only=True))
         return X
 
@@ -167,13 +171,12 @@ class DataFrameWrapper(BaseEstimator, TransformerMixin):
             cols = self.columns_
             cols = [f"{col}-{self.transformer.__class__.__name__}" for col in cols]
         else:
-            raise ValueError("ASDSA")
+            raise ValueError("I don't know whats the error, Boss!")
         self.final_columns = cols
         return pd.DataFrame(Xt, columns=cols, index=X.index)
 
     
 if __name__ == "__main__":
-
     data = pd.read_csv("final.csv", encoding="latin-1")
     data["Industry"] = data["Industry"].astype("str")
     data = data.drop(columns=["Unnamed: 0","cluster"])

@@ -1,29 +1,80 @@
-from custom_aggregator import DataFrameWrapper, GroupStatsAggregator
+from custom_transform import DataFrameWrapper, Clustering, GroupStatsAggregator, ColumnSelector, BASIC_COLUMNS, NUMERIC_COLUMNS_DICT
+
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import QuantileTransformer
+from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.decomposition import TruncatedSVD
+from sklearn.feature_selection import RFE
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion
+from xgboost import XGBRegressor
 
 
-def prepare_data_preprocessing_pipeline(n_clusters=8,n_neighbors=3,n_features_to_select=12):
-    numeric_columns = ['MR', 'TRC', 'BAB', 'EV', 'P/B', 'PSR', 'ROA', 'C/A', 'D/A', 'PG', 'AG', 'Industry-cluster-MR-mean', 'Industry-cluster-TRC-mean', 'Industry-cluster-BAB-mean', 'Industry-cluster-EV-mean', 'Industry-cluster-P/B-mean', 'Industry-cluster-PSR-mean', 'Industry-cluster-ROA-mean', 'Industry-cluster-C/A-mean', 'Industry-cluster-D/A-mean', 'Industry-cluster-PG-mean', 'Industry-cluster-AG-mean', 'Industry-MR-mean', 'Industry-TRC-mean', 'Industry-BAB-mean', 'Industry-EV-mean', 'Industry-P/B-mean', 'Industry-PSR-mean', 'Industry-ROA-mean', 'Industry-C/A-mean', 'Industry-D/A-mean', 'Industry-PG-mean', 'Industry-AG-mean', 'cluster-MR-mean', 'cluster-TRC-mean', 'cluster-BAB-mean', 'cluster-EV-mean', 'cluster-P/B-mean', 'cluster-PSR-mean', 'cluster-ROA-mean', 'cluster-C/A-mean', 'cluster-D/A-mean', 'cluster-PG-mean', 'cluster-AG-mean']
-    transforms = [
-    ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
-    ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
-    ('rs', DataFrameWrapper(RobustScaler(), columns=numeric_columns)),
-    ('qt', DataFrameWrapper(QuantileTransformer(n_quantiles=100, output_distribution='normal'), columns=numeric_columns)),
-    ('kbd', DataFrameWrapper(KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform'), columns=numeric_columns)),
-    ]
-    fu = FeatureUnion(transforms).set_output(transform="pandas")
-    fu = DataFrameWrapper(fu)
-    preprocessor = ColumnTransformer([
-        ('num', fu, numeric_columns)
-    ], remainder="passthrough")
-    preprocessor.set_output(transform="pandas")
-    wrapped_preprocessor = DataFrameWrapper(preprocessor)
-    rfe_estimator = CatBoostRegressor(iterations=iterations, depth=depth, learning_rate=lr, verbose=0)
-    rfe = RFE(estimator=rfe_estimator, n_features_to_select=n_features_to_select)
+def get_xgboost_default_params():
+    xgb_params = {
+        'n_estimators': 300,
+        'learning_rate': 0.05,
+        'max_depth': 3,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'reg_alpha': 0.1,
+        'reg_lambda': 1.0,
+        'objective': 'reg:squarederror',
+        'random_state': 42,
+        'verbosity': 0
+    }
+    return xgb_params
+    
+# def get_cnn_default_params():
+    
 
+def prepare_model_pipeline(column_mode: str,
+                            use_transformation: bool,
+                            use_rfe: bool,
+                            n_neighbors,
+                            n_clusters,
+                            n_features_to_select,
+                            model_class,
+                            model_params_dict):
     steps = []
-    steps.append(("gsa",GroupStatsAggregator(n_clusters=n_clusters, n_neighbors=n_neighbors)))
-    steps.append(("preprocess",wrapped_preprocessor))
-    steps.append(("rfe",rfe))
-    steps.append(("regressor",CatBoostRegressor(iterations=iterations,depth=depth,learning_rate=lr,verbose=0)))
-    model = Pipeline(steps)
-    return model
+    if column_mode != "original":
+        steps.append(("basic_column_selector",ColumnSelector(BASIC_COLUMNS)))
+    
+    if column_mode == "basic-industry-aggregated":
+        steps.append(("gsa",GroupStatsAggregator(group_cols=["Industry"])))
+    elif column_mode == "cluster-industry-aggregated":
+        steps.append(("clustering", Clustering(n_neighbors=n_neighbors, n_clusters=n_clusters)))
+        steps.append(("gsa",GroupStatsAggregator(group_cols=["cluster"])))
+    elif column_mode == "basic-industry-cluster-aggregated":
+        steps.append(("clustering", Clustering(n_neighbors=n_neighbors, n_clusters=n_clusters)))
+        steps.append(("gsa",GroupStatsAggregator(group_cols=["Industry","cluster"])))
+    
+    if use_transformation:
+        numeric_columns = NUMERIC_COLUMNS_DICT[column_mode]
+        transforms = [
+        ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
+        ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
+        ('rs', DataFrameWrapper(RobustScaler(), columns=numeric_columns)),
+        ('qt', DataFrameWrapper(QuantileTransformer(n_quantiles=100, output_distribution='normal'), columns=numeric_columns)),
+        ('kbd', DataFrameWrapper(KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform'), columns=numeric_columns)),
+        ('svd', DataFrameWrapper(TruncatedSVD(n_components=7), columns=numeric_columns)),
+        ]
+        fu = FeatureUnion(transforms).set_output(transform="pandas")
+        fu = DataFrameWrapper(fu)
+        preprocessor = ColumnTransformer([
+            ('num', fu, numeric_columns)
+        ], remainder="passthrough")
+        preprocessor.set_output(transform="pandas")
+        wrapped_preprocessor = DataFrameWrapper(preprocessor)
+        steps.append(("transformation",wrapped_preprocessor))
+    
+    if use_rfe:
+        rfe_estimator = model_class(**model_params_dict)
+        rfe = RFE(estimator=rfe_estimator, n_features_to_select=n_features_to_select)
+        steps.append(("rfe",rfe))
+    steps.append(("regressor",model_class(**model_params_dict)))
+    model_pipeline = Pipeline(steps)
+    return model_pipeline
