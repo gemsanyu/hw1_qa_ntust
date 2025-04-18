@@ -1,6 +1,3 @@
-from custom_transform import (BASIC_COLUMNS, NUMERIC_COLUMNS_DICT, Clustering,
-                              ColumnSelector, DataFrameWrapper,
-                              GroupStatsAggregator)
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import RFE
@@ -9,6 +6,10 @@ from sklearn.preprocessing import (KBinsDiscretizer, MinMaxScaler,
                                    QuantileTransformer, RobustScaler,
                                    StandardScaler)
 from xgboost import XGBRegressor
+
+from custom_transform import (BASIC_COLUMNS, NUMERIC_COLUMNS_DICT, Clustering,
+                              ColumnSelector, DataFrameWrapper,
+                              GroupStatsAggregator)
 
 
 def get_xgboost_default_params():
@@ -53,8 +54,8 @@ def prepare_model_pipeline(column_mode: str,
     if use_transformation:
         numeric_columns = NUMERIC_COLUMNS_DICT[column_mode]
         transforms = [
-        ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
-        # ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
+        # ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
+        ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
         # ('rs', DataFrameWrapper(RobustScaler(), columns=numeric_columns)),
         # ('qt', DataFrameWrapper(QuantileTransformer(n_quantiles=100, output_distribution='normal'), columns=numeric_columns)),
         # ('kbd', DataFrameWrapper(KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform'), columns=numeric_columns)),
