@@ -139,5 +139,5 @@ if __name__ == "__main__":
         use_transformation=True
         n_neighbors=default_n_neighbors
         n_clusters=default_n_clusters
-    hyperparam_tuning(column_mode,use_transformation,use_rfe,n_neighbors,n_clusters,n_features_to_select,args.model_name)
+    hyperparam_tuning(column_mode,use_transformation,use_rfe,n_neighbors,n_clusters,n_features_to_select,args.model)
     

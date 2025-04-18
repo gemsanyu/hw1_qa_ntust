@@ -24,7 +24,7 @@ MODEL_CHOICES = [
             "mlp"
         ]
 
-def call_tuning(preprocess_mode, use_rfe, model):
+def call_hyperparam_tuning(model, preprocess_mode, use_rfe):
     cmd_args = ["python",
          "hyperparam_tuning.py",
          "--preprocess-mode",
@@ -36,20 +36,17 @@ def call_tuning(preprocess_mode, use_rfe, model):
     run(cmd_args)
 
 if __name__ == "__main__":
-    model_ppmode_list = [("catboost", "p2", False),
-    ("elasticnet", "p4", False),
+    model_ppmode_list = [
+    ("xgboost", "p1", False),
+    ("catboost", "p1", False),
+    ("elasticnet", "p7", False),
     ("lasso", "p1", True ),
-    ("lightgbm", "p4", False),
-    ("linear_regression", "p4", True ),
-    ("random_forest", "p2", False),
-    ("ridge", "p5", True ),
-    ("svm", "p2", False),
-    ("xgboost", "p2", True )]
+    ("lightgbm", "p9", False),
+    ("random_forest", "p5", False),
+    ("ridge", "p4", True ),
+    ("svm", "p9", False),
+    ("mlp", "p9", False )]
     
     for args in model_ppmode_list:
-        call_hyperparam_tuning
-    for model in MODEL_CHOICES:
-        for preprocess_mode in PREPROCESS_MODES:
-            for use_rfe in [False, True]:
-                print(model, preprocess_mode, use_rfe)
-                call_hyperparam_tuning(preprocess_mode, use_rfe, model)
+        call_hyperparam_tuning(*args)
+        break
