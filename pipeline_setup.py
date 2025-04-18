@@ -53,8 +53,8 @@ def prepare_model_pipeline(column_mode: str,
     if use_transformation:
         numeric_columns = NUMERIC_COLUMNS_DICT[column_mode]
         transforms = [
-        ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
-        # ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
+        # ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
+        ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
         # ('rs', DataFrameWrapper(RobustScaler(), columns=numeric_columns)),
         # ('qt', DataFrameWrapper(QuantileTransformer(n_quantiles=100, output_distribution='normal'), columns=numeric_columns)),
         # ('kbd', DataFrameWrapper(KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform'), columns=numeric_columns)),
