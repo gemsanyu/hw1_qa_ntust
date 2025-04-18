@@ -1,4 +1,5 @@
 import argparse
+import pathlib
 from typing import Optional, Union
 
 import numpy as np
@@ -176,4 +177,8 @@ if __name__ == "__main__":
         n_neighbors=default_n_neighbors
         n_clusters=default_n_clusters
     cv_scores = run_cv(column_mode,use_transformation,use_rfe,n_neighbors,n_clusters,n_features_to_select,model_class,model_params_dict)
-    print(cv_scores, cv_scores.mean())
+    result_filepath = pathlib.Path()/"results.csv"
+    
+    with open(result_filepath, "a+") as result_file:
+        for i, score in enumerate(cv_scores):
+            result_file.write(f"{args.model},{args.preprocess_mode},{args.use_rfe},{i},{score}\n")

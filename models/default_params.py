@@ -28,9 +28,10 @@ catboost_params = {
     'cat_features': [],              # List of categorical feature indices. You should list categorical features here.
     'thread_count': -1,              # Number of threads to use for training. Use `-1` to utilize all available threads.
     'task_type': 'CPU',              # 'CPU' for CPU training, 'GPU' for GPU training. Use GPU if available.
-    'verbose': 200,                  # Frequency of logging the progress during training (default: 100). 
+    'verbose': 0,                  # Frequency of logging the progress during training (default: 100). 
     'early_stopping_rounds': 50,     # Early stopping rounds. If no improvement in the validation score, training will stop after this many iterations.
-    'eval_metric': 'RMSE',           # Evaluation metric to use (can also be MAE, LogLoss, etc.).
+    'eval_metric': 'RMSE',  
+    "allow_writing_files":False         # Evaluation metric to use (can also be MAE, LogLoss, etc.).
 }
 
 mlp_params = {
