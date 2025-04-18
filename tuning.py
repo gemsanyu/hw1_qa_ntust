@@ -3,15 +3,16 @@ from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
+from catboost import CatBoostRegressor
 from lightgbm import LGBMRegressor
-from models.default_params import (elasticnet_params, lasso_params,
-                                   lightgbm_params, mlp_params,
+from models.default_params import (catboost_params, elasticnet_params,
+                                   lasso_params, lightgbm_params, mlp_params,
                                    random_forest_params, ridge_params,
                                    svm_params, xgboost_params)
 from pipeline_setup import prepare_model_pipeline
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import RepeatedKFold, cross_val_score
 from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVR
 from xgboost import XGBRegressor
@@ -47,6 +48,7 @@ def prepare_args():
         "--model",
         type=str,
         choices=[
+            "catboost",
             "xgboost",
             "lightgbm",
             "linear_regression",
@@ -65,6 +67,7 @@ def prepare_args():
 
 
 MODEL_TYPES = Union[
+    CatBoostRegressor,
     XGBRegressor,
     LGBMRegressor,
     LinearRegression,
@@ -94,6 +97,8 @@ def setup_model(model_name:str)->MODEL_TYPES:
         return RandomForestRegressor, random_forest_params
     if model_name == "mlp":
         return MLPRegressor, mlp_params
+    if model_name == "catboost":
+        return CatBoostRegressor, catboost_params
     return None, None
     
 
@@ -107,7 +112,8 @@ def run_cv(column_mode: str,
         model_params_dict:dict)->np.ndarray:
     X_train, y_train = pd.read_csv("X_train.csv").drop(columns=['Unnamed: 0']), pd.read_csv("y_train.csv").drop(columns=['Unnamed: 0'])
     model_pipeline = prepare_model_pipeline(column_mode, use_transformation, use_rfe, n_neighbors,n_clusters,n_features_to_select, model_class, model_params_dict)
-    cv_scores = cross_val_score(model_pipeline, X_train, y_train, cv=5, scoring='neg_root_mean_squared_error', n_jobs=-1)
+    cv = RepeatedKFold(n_repeats=3)
+    cv_scores = cross_val_score(model_pipeline, X_train, y_train, cv=cv, scoring='neg_root_mean_squared_error', n_jobs=-1)
     return cv_scores
 
 
@@ -170,4 +176,4 @@ if __name__ == "__main__":
         n_neighbors=default_n_neighbors
         n_clusters=default_n_clusters
     cv_scores = run_cv(column_mode,use_transformation,use_rfe,n_neighbors,n_clusters,n_features_to_select,model_class,model_params_dict)
-    print(cv_scores)
+    print(cv_scores, cv_scores.mean())
