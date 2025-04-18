@@ -1,6 +1,3 @@
-from custom_transform import (BASIC_COLUMNS, NUMERIC_COLUMNS_DICT, Clustering,
-                              ColumnSelector, DataFrameWrapper,
-                              GroupStatsAggregator)
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import RFE
@@ -9,6 +6,10 @@ from sklearn.preprocessing import (KBinsDiscretizer, MinMaxScaler,
                                    QuantileTransformer, RobustScaler,
                                    StandardScaler)
 from xgboost import XGBRegressor
+
+from custom_transform import (BASIC_COLUMNS, NUMERIC_COLUMNS_DICT, Clustering,
+                              ColumnSelector, DataFrameWrapper,
+                              GroupStatsAggregator)
 
 
 def get_xgboost_default_params():
