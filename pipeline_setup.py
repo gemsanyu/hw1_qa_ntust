@@ -54,11 +54,11 @@ def prepare_model_pipeline(column_mode: str,
         numeric_columns = NUMERIC_COLUMNS_DICT[column_mode]
         transforms = [
         ('mms', DataFrameWrapper(MinMaxScaler(), columns=numeric_columns)),
-        ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
-        ('rs', DataFrameWrapper(RobustScaler(), columns=numeric_columns)),
-        ('qt', DataFrameWrapper(QuantileTransformer(n_quantiles=100, output_distribution='normal'), columns=numeric_columns)),
-        ('kbd', DataFrameWrapper(KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform'), columns=numeric_columns)),
-        ('svd', DataFrameWrapper(TruncatedSVD(n_components=7), columns=numeric_columns)),
+        # ('ss', DataFrameWrapper(StandardScaler(), columns=numeric_columns)),
+        # ('rs', DataFrameWrapper(RobustScaler(), columns=numeric_columns)),
+        # ('qt', DataFrameWrapper(QuantileTransformer(n_quantiles=100, output_distribution='normal'), columns=numeric_columns)),
+        # ('kbd', DataFrameWrapper(KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='uniform'), columns=numeric_columns)),
+        # ('svd', DataFrameWrapper(TruncatedSVD(n_components=7), columns=numeric_columns)),
         ]
         fu = FeatureUnion(transforms).set_output(transform="pandas")
         fu = DataFrameWrapper(fu)
