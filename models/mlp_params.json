@@ -1,0 +1,9 @@
+{
+  "hidden_layer_sizes": [
+    64,
+    32,
+    16
+  ],
+  "alpha": 0.052274651956071186,
+  "learning_rate": "constant"
+}

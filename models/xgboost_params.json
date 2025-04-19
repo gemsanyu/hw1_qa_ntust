@@ -1,5 +1,5 @@
 {
-  "n_estimators": 479,
-  "learning_rate": 0.0040831107851519366,
-  "max_depth": 7
+  "n_estimators": 365,
+  "learning_rate": 0.004935232982430007,
+  "max_depth": 4
 }

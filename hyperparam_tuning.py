@@ -1,13 +1,14 @@
+import json
 import pathlib
 from typing import Optional
-import json
 
-from setup import prepare_args, setup_model, MODEL_TYPES
 import numpy as np
-import pandas as pd
-from pipeline_setup import prepare_model_pipeline
-from sklearn.model_selection import RepeatedKFold, cross_val_score
 import optuna
+import pandas as pd
+from sklearn.model_selection import RepeatedKFold, cross_val_score
+
+from pipeline_setup import prepare_model_pipeline
+from setup import MODEL_TYPES, prepare_args, setup_model
 
 
 def hyperparam_tuning(column_mode: str,
@@ -72,7 +73,7 @@ def hyperparam_tuning(column_mode: str,
     study = optuna.create_study(direction='minimize')
 
     # Start the optimization process
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=50)
 
     # Print the best parameters
     with open(f"models/{model_name}_params.json", 'w') as f:
