@@ -1,1 +1,5 @@
-{}
+{
+  "n_estimators": 101,
+  "learning_rate": 0.01839510884349789,
+  "num_leaves": 66
+}

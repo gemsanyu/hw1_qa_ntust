@@ -38,7 +38,7 @@ def hyperparam_tuning(column_mode: str,
             params['learning_rate'] = trial.suggest_float('learning_rate', 1e-5, 0.1, log=True)
             params['max_depth'] = trial.suggest_int('max_depth', 3, 10)
 
-        elif model_name == 'lightbgm':
+        elif model_name == 'lightgbm':
             params['n_estimators'] = trial.suggest_int('n_estimators', 100, 1000)
             params['learning_rate'] = trial.suggest_float('learning_rate', 1e-5, 0.1, log=True)
             params['num_leaves'] = trial.suggest_int('num_leaves', 20, 100)
